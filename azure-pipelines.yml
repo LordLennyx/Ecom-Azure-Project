@@ -1,0 +1,57 @@
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  # Noms des connexions de service que tu as créées
+  dockerRegistryServiceConnection: 'acr-connexion'
+  kubernetesServiceConnection: 'aks-connexion'
+  githubServiceConnection: 'LordLennyx' 
+  
+  # Informations sur l'image
+  imageRepository: 'ecom-app'
+  containerRegistry: 'acrbechardfinal.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: "Étape 1 : Build et Push"
+  jobs:
+  - job: Build
+    displayName: "Construction Docker"
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: "Build et Push de l'image vers ACR"
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+- stage: Deploy
+  displayName: "Étape 2 : Déploiement sur AKS"
+  dependsOn: Build
+  jobs:
+  - job: Deploy
+    displayName: "Déploiement Kubernetes"
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: KubernetesManifest@1
+      displayName: "Déploiement de l'application sur le cluster"
+      inputs:
+        action: deploy
+        connectionType: 'kubernetesServiceConnection'
+        kubernetesServiceConnection: $(kubernetesServiceConnection)
+        namespace: 'default'
+        manifests: |
+          $(Build.SourcesDirectory)/deployment.yaml
+        containers: '$(containerRegistry)/$(imageRepository):$(tag)'
