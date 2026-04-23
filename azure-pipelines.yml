@@ -5,12 +5,10 @@ resources:
 - repo: self
 
 variables:
-  # Noms des connexions de service que tu as créées
   dockerRegistryServiceConnection: 'acr-connexion'
   kubernetesServiceConnection: 'aks-connexion'
   githubServiceConnection: 'LordLennyx' 
   
-  # Informations sur l'image
   imageRepository: 'ecom-app'
   containerRegistry: 'acrbechardfinal.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
@@ -23,7 +21,7 @@ stages:
   - job: Build
     displayName: "Construction Docker"
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'Default'
     steps:
     - task: Docker@2
       displayName: "Build et Push de l'image vers ACR"
@@ -43,14 +41,16 @@ stages:
   - job: Deploy
     displayName: "Déploiement Kubernetes"
     pool:
-      vmImage: 'ubuntu-latest'
+      name: 'Default'
     steps:
     - task: KubernetesManifest@1
       displayName: "Déploiement de l'application sur le cluster"
       inputs:
         action: deploy
-        connectionType: 'kubernetesServiceConnection'
-        kubernetesServiceConnection: $(kubernetesServiceConnection)
+        connectionType: 'Azure Resource Manager'
+        azureSubscriptionConnection: $(kubernetesServiceConnection)
+        azureResourceGroup: 'RG-FINAL-BECHARD'
+        kubernetesCluster: 'Bechard-AKS-Cluster'
         namespace: 'default'
         manifests: |
           $(Build.SourcesDirectory)/deployment.yaml
